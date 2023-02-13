@@ -36,12 +36,14 @@ fn main() {
         Some(arg) => arg,
         None => "./".to_string()
     };
-    let pattern = Path::new(&path).join("*.tsx");
+    let pattern = Path::new(&path).join("*.ts*");
     let pattern = pattern.to_str().unwrap();
     let mut file_map = BTreeMap::new();
 
     for entry in glob(pattern).unwrap().filter_map(Result::ok) {
-        if entry.to_str().unwrap().contains(".test") {
+        let entry_value = &entry.to_str().unwrap();
+
+        if entry_value.contains(".test") || *entry_value == "index.ts" {
             continue;
         }
 
