@@ -1,3 +1,3 @@
 # Barrel
 
-Creates JS and TS barrel files.
+Creates TS barrel files.
