@@ -18,7 +18,7 @@ enum Export {
 }
 
 impl Export {
-    pub fn to_string(&self) -> Option<String> {
+    fn to_value(&self) -> Option<String> {
         match self {
             Export::Named => Some("export * from".to_string()),
             Export::Default(name) => {
@@ -56,7 +56,7 @@ fn main() {
     let mut file =  OpenOptions::new().read(true).write(true).create(true).open(&index_path).unwrap();
 
     for (name, export_type) in file_map {
-        let export = match export_type.to_string() {
+        let export = match export_type.to_value() {
             Some(e) => e,
             None => {
                 continue;
