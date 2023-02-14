@@ -56,8 +56,12 @@ fn get_entries(glob: &GlobMatcher, dir: ReadDir) -> Vec<DirEntry> {
 fn is_wanted_path(glob: &GlobMatcher, path: &Path) -> bool {
     let name = path.file_stem().unwrap();
     let name = name.to_str().unwrap();
+    lazy_static! {
+        static ref IGNORE: Regex = Regex::new("(.test|.stories|index)").unwrap();
+    }
 
-    glob.is_match(path) && !name.contains(".test") && name != "index"
+    println!("should ignore {name}: {}", IGNORE.is_match(name));
+    glob.is_match(path) && !IGNORE.is_match(name)
 }
 
 fn has_barrel(path: &Path) -> bool {
