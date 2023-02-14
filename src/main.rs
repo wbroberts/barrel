@@ -1,63 +1,29 @@
 use std::{
     env, 
     path::{Path, PathBuf}, 
-    result::Result, 
     io::{BufReader, BufRead, Write}, 
-    fs::{File, OpenOptions}, 
+    fs::{File, OpenOptions, self, DirEntry, ReadDir}, 
     collections::BTreeMap
 };
 
-use glob::glob;
+use globset::{Glob, GlobMatcher};
 use regex::Regex;
 
-#[derive(Debug)]
-enum Export {
-    None,
-    Named,
-    Default(String)
-}
+mod export;
 
-impl Export {
-    fn to_value(&self) -> Option<String> {
-        match self {
-            Export::Named => Some("export * from".to_string()),
-            Export::Default(name) => {
-                let export = format!("export {{ default as {} }} from", name);
-                Some(export)
-            },
-            _ => None
-        }
-    }
-}
+use export::Export;
 
 fn main() {
-    let mut args = env::args().skip(1);
-    let path = match args.next() {
-        Some(arg) => arg,
-        None => "./".to_string()
-    };
-    let pattern = Path::new(&path).join("*.ts*");
-    let pattern = pattern.to_str().unwrap();
-    let mut file_map = BTreeMap::new();
-
-    for entry in glob(pattern).unwrap().filter_map(Result::ok) {
-        let entry_value = &entry.to_str().unwrap();
-
-        if entry_value.contains(".test") || *entry_value == "index.ts" {
-            continue;
-        }
-
-        let file_export = get_file_export(&entry);
-        let file_name = entry.file_stem().unwrap();
-        let file_name = file_name.to_str().unwrap();
-
-        file_map.insert(file_name.to_owned(), file_export);
-    };
+    let path = get_dir();
+    let dir = fs::read_dir(&path).unwrap();
+    let glob = Glob::new("*.{ts,tsx}").unwrap().compile_matcher();
+    let entries = get_entries(&glob, dir);
+    let file_export_map = create_file_export_map(&entries);
 
     let index_path = Path::new(&path).join("index.ts");
     let mut file =  OpenOptions::new().read(true).write(true).create(true).open(&index_path).unwrap();
 
-    for (name, export_type) in file_map {
+    for (name, export_type) in file_export_map {
         let export = match export_type.to_value() {
             Some(e) => e,
             None => {
@@ -69,6 +35,51 @@ fn main() {
     }
 
     println!("barrel file updated");
+}
+
+fn get_dir() -> String {
+    let mut args = env::args().skip(1);
+
+    match args.next() {
+        Some(arg) => arg,
+        None => "./".to_string()
+    }
+}
+
+fn get_entries(glob: &GlobMatcher, dir: ReadDir) -> Vec<DirEntry> {
+    dir.filter_map(|d| {
+        let d = d.unwrap();
+        let meta = d.metadata().unwrap();
+        
+        if meta.is_file() && is_wanted_path(&glob, &d.path()) {
+            Some(d)
+        } else {
+            None
+        }
+    }).collect::<Vec<DirEntry>>()
+}
+
+fn is_wanted_path(glob: &GlobMatcher, path: &Path) -> bool {
+    let name = path.file_stem().unwrap();
+    let name = name.to_str().unwrap();
+
+    glob.is_match(path) && !name.contains(".test") && name != "index"
+}
+
+
+fn create_file_export_map(entries: &Vec<DirEntry>) -> BTreeMap<String, Export> {
+    let mut file_map = BTreeMap::new();
+
+    for entry in entries {
+        let path = entry.path();
+        let export = get_file_export(&path);
+        let name = path.file_stem().unwrap();
+        let name = String::from(name.to_str().unwrap());
+
+        file_map.insert(name, export);
+    }
+
+    file_map
 }
 
 fn get_file_export(entry: &PathBuf) -> Export {
@@ -99,4 +110,3 @@ fn get_file_export(entry: &PathBuf) -> Export {
 
     file_export
 }
-
