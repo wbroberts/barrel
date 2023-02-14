@@ -54,6 +54,8 @@ fn get_entries(glob: &GlobMatcher, dir: ReadDir) -> Vec<DirEntry> {
         
         if meta.is_file() && is_wanted_path(&glob, &d.path()) {
             Some(d)
+        } else if meta.is_dir() && has_barrel(&d.path()) {
+            Some(d)
         } else {
             None
         }
@@ -65,6 +67,10 @@ fn is_wanted_path(glob: &GlobMatcher, path: &Path) -> bool {
     let name = name.to_str().unwrap();
 
     glob.is_match(path) && !name.contains(".test") && name != "index"
+}
+
+fn has_barrel(path: &Path) -> bool {
+    path.join("index.ts").exists()
 }
 
 
@@ -110,6 +116,11 @@ fn get_default_func_name(line: &str) -> String {
 fn get_file_export(entry: &PathBuf) -> Export {
     let mut file_export = Export::None;
 
+    if entry.is_dir() {
+        file_export = Export::Module;
+        return file_export;
+    }
+
     let f = File::open(entry.as_path()).unwrap();
     let buf = BufReader::new(f);
 
@@ -124,7 +135,6 @@ fn get_file_export(entry: &PathBuf) -> Export {
             file_export = Export::Named;
         } else {
             let func_name = get_default_func_name(&line);
-            println!("{func_name}");
             file_export = Export::Default(func_name.to_string());
             break;
         }
