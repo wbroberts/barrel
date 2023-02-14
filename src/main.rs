@@ -21,19 +21,10 @@ fn main() {
     let dir = fs::read_dir(&path).unwrap();
     let glob = Glob::new("*.{ts,tsx}").unwrap().compile_matcher();
     let entries = get_entries(&glob, dir);
-    let file_export_map = create_file_export_map(entries);
-    let mut barrel = get_barrel_file(&path);
+    let export_map = create_file_export_map(entries);
+    let barrel_file = get_barrel_file(&path);
 
-    for (name, export_type) in file_export_map {
-        let export = match export_type.to_value() {
-            Some(e) => e,
-            None => {
-                continue;
-            }
-        };
-
-        writeln!(barrel, "{} './{}';", export, name).unwrap();
-    }
+    write_to_file(barrel_file, export_map);
 
     println!("barrel file updated");
 }
@@ -141,4 +132,17 @@ fn get_file_export(entry: &PathBuf) -> Export {
     }
 
     file_export
+}
+
+fn write_to_file(mut file: File, export_map: BTreeMap<String, Export>) {
+    for (name, export_type) in export_map {
+        let export = match export_type.to_value() {
+            Some(e) => e,
+            None => {
+                continue;
+            }
+        };
+
+        writeln!(file, "{} './{}';", export, name).unwrap();
+    }
 }
