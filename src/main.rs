@@ -9,6 +9,9 @@ use std::{
 use globset::{Glob, GlobMatcher};
 use regex::Regex;
 
+#[macro_use]
+extern crate lazy_static;
+
 mod export;
 
 use export::Export;
@@ -18,10 +21,8 @@ fn main() {
     let dir = fs::read_dir(&path).unwrap();
     let glob = Glob::new("*.{ts,tsx}").unwrap().compile_matcher();
     let entries = get_entries(&glob, dir);
-    let file_export_map = create_file_export_map(&entries);
-
-    let index_path = Path::new(&path).join("index.ts");
-    let mut file =  OpenOptions::new().read(true).write(true).create(true).open(&index_path).unwrap();
+    let file_export_map = create_file_export_map(entries);
+    let mut barrel = get_barrel_file(&path);
 
     for (name, export_type) in file_export_map {
         let export = match export_type.to_value() {
@@ -31,7 +32,7 @@ fn main() {
             }
         };
 
-        writeln!(file, "{} './{}';", export, name).unwrap();
+        writeln!(barrel, "{} './{}';", export, name).unwrap();
     }
 
     println!("barrel file updated");
@@ -67,7 +68,7 @@ fn is_wanted_path(glob: &GlobMatcher, path: &Path) -> bool {
 }
 
 
-fn create_file_export_map(entries: &Vec<DirEntry>) -> BTreeMap<String, Export> {
+fn create_file_export_map(entries: Vec<DirEntry>) -> BTreeMap<String, Export> {
     let mut file_map = BTreeMap::new();
 
     for entry in entries {
@@ -82,8 +83,31 @@ fn create_file_export_map(entries: &Vec<DirEntry>) -> BTreeMap<String, Export> {
     file_map
 }
 
+fn get_barrel_file(path: &str) -> File {
+    let index_path = Path::new(&path).join("index.ts");
+
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&index_path)
+        .unwrap()
+}
+
+fn get_default_func_name(line: &str) -> String {
+    lazy_static! {
+        static ref DEFAULT: Regex = Regex::new("(export default )(function)").unwrap();
+        static ref NAME: Regex = Regex::new("[^a-zA-Z]").unwrap();
+    }
+
+    let without_export = DEFAULT.replace(line, "");
+    let func_name = NAME.replace_all(&without_export, "");
+    
+    func_name.into()
+}
+
 fn get_file_export(entry: &PathBuf) -> Export {
-    let default_reg = Regex::new("export default ").unwrap();
     let mut file_export = Export::None;
 
     let f = File::open(entry.as_path()).unwrap();
@@ -99,11 +123,9 @@ fn get_file_export(entry: &PathBuf) -> Export {
         if !line.contains(" default ") {
             file_export = Export::Named;
         } else {
-            let func_name = default_reg.replace(&line, "");
-            let mut func_name = func_name.split(" ");
-            let func_name = func_name.next().unwrap();
-
-            file_export = Export::Default(func_name[..func_name.len() - 1].to_string());
+            let func_name = get_default_func_name(&line);
+            println!("{func_name}");
+            file_export = Export::Default(func_name.to_string());
             break;
         }
     }
