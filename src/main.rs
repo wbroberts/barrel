@@ -1,11 +1,12 @@
 use std::{
-    env, 
     path::{Path, PathBuf}, 
     io::{BufReader, BufRead, Write}, 
     fs::{File, OpenOptions, self, DirEntry, ReadDir}, 
     collections::BTreeMap
 };
 
+use clap::{Command, Arg, ArgAction, builder::ValueParser};
+use colored::Colorize;
 use globset::{Glob, GlobMatcher};
 use regex::Regex;
 
@@ -16,34 +17,50 @@ mod export;
 
 use export::Export;
 
-fn main() {
-    let path = get_dir();
-    let dir = fs::read_dir(&path).unwrap();
-    let glob = Glob::new("*.{ts,tsx}").unwrap().compile_matcher();
-    let entries = get_entries(&glob, dir);
-    let export_map = create_file_export_map(entries);
-    let barrel_file = get_barrel_file(&path);
-
-    write_to_file(barrel_file, export_map);
-
-    println!("barrel file updated");
+struct Barrel {
+    ignore: Regex,
+    glob: GlobMatcher,
 }
 
-fn get_dir() -> String {
-    let mut args = env::args().skip(1);
+impl Barrel {
+    fn new() -> Barrel {
+        let glob = Glob::new("*.{ts,tsx}").unwrap().compile_matcher();
+        let ignore = Regex::new("(.test|.stories|index)").unwrap();
 
-    match args.next() {
-        Some(arg) => arg,
-        None => "./".to_string()
+        Barrel { ignore, glob }
     }
 }
 
-fn get_entries(glob: &GlobMatcher, dir: ReadDir) -> Vec<DirEntry> {
+fn main() {
+    let command = Command::new("barrel")
+        .about("Create barrel files for TS directories")
+        .author("William Roberts")
+        .arg(
+            Arg::new("path").action(ArgAction::Set).default_value("./").hide_default_value(true).value_parser(ValueParser::path_buf()).help("The path where the file should be made or updated. Default is the current path")
+        );
+    
+    let matches = command.get_matches();
+
+    let path = matches.get_one::<PathBuf>("path").unwrap();
+    let config = Barrel::new();
+    let dir = fs::read_dir(&path).unwrap();
+    let entries = get_entries(&config, dir);
+    let export_map = create_file_export_map(entries);
+    
+    if export_map.len() > 0 {
+        // let barrel_file = get_barrel_file(&path);
+        create_barrel_file(path, export_map);
+    }
+
+    println!("✔ {}", "Done".green());
+}
+
+fn get_entries(config: &Barrel, dir: ReadDir) -> Vec<DirEntry> {
     dir.filter_map(|d| {
         let d = d.unwrap();
         let meta = d.metadata().unwrap();
         
-        if meta.is_file() && is_wanted_path(&glob, &d.path()) {
+        if meta.is_file() && is_wanted_path(&config, &d.path()) {
             Some(d)
         } else if meta.is_dir() && has_barrel(&d.path()) {
             Some(d)
@@ -53,15 +70,11 @@ fn get_entries(glob: &GlobMatcher, dir: ReadDir) -> Vec<DirEntry> {
     }).collect::<Vec<DirEntry>>()
 }
 
-fn is_wanted_path(glob: &GlobMatcher, path: &Path) -> bool {
+fn is_wanted_path(config: &Barrel, path: &Path) -> bool {
     let name = path.file_stem().unwrap();
     let name = name.to_str().unwrap();
-    lazy_static! {
-        static ref IGNORE: Regex = Regex::new("(.test|.stories|index)").unwrap();
-    }
 
-    println!("should ignore {name}: {}", IGNORE.is_match(name));
-    glob.is_match(path) && !IGNORE.is_match(name)
+    config.glob.is_match(path) && !config.ignore.is_match(name)
 }
 
 fn has_barrel(path: &Path) -> bool {
@@ -82,18 +95,6 @@ fn create_file_export_map(entries: Vec<DirEntry>) -> BTreeMap<String, Export> {
     }
 
     file_map
-}
-
-fn get_barrel_file(path: &str) -> File {
-    let index_path = Path::new(&path).join("index.ts");
-
-    OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&index_path)
-        .unwrap()
 }
 
 fn get_default_func_name(line: &str) -> String {
@@ -138,7 +139,9 @@ fn get_file_export(entry: &PathBuf) -> Export {
     file_export
 }
 
-fn write_to_file(mut file: File, export_map: BTreeMap<String, Export>) {
+fn create_barrel_file(path: &Path, export_map: BTreeMap<String, Export>) {
+    let mut file = get_barrel_file(path);
+
     for (name, export_type) in export_map {
         let export = match export_type.to_value() {
             Some(e) => e,
@@ -149,4 +152,16 @@ fn write_to_file(mut file: File, export_map: BTreeMap<String, Export>) {
 
         writeln!(file, "{} './{}';", export, name).unwrap();
     }
+}
+
+fn get_barrel_file(path: &Path) -> File {
+    let index_path = path.join("index.ts");
+
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&index_path)
+        .unwrap()
 }
