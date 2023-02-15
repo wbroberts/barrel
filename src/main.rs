@@ -1,11 +1,11 @@
 use std::{
-    path::{Path, PathBuf}, 
-    io::{BufReader, BufRead, Write}, 
-    fs::{File, OpenOptions, self, DirEntry, ReadDir}, 
-    collections::BTreeMap
+    collections::BTreeMap,
+    fs::{self, DirEntry, File, OpenOptions, ReadDir},
+    io::{BufRead, BufReader, Write},
+    path::{Path, PathBuf},
 };
 
-use clap::{Command, Arg, ArgAction, builder::ValueParser};
+use clap::{builder::ValueParser, Arg, ArgAction, Command};
 use colored::Colorize;
 use globset::{Glob, GlobMatcher};
 use regex::Regex;
@@ -36,9 +36,14 @@ fn main() {
         .about("Create barrel files for TS directories")
         .author("William Roberts")
         .arg(
-            Arg::new("path").action(ArgAction::Set).default_value("./").hide_default_value(true).value_parser(ValueParser::path_buf()).help("The path where the file should be made or updated. Default is the current path")
+            Arg::new("path")
+                .action(ArgAction::Set)
+                .default_value("./")
+                .hide_default_value(true)
+                .value_parser(ValueParser::path_buf())
+                .help("The path where the file should be made or updated. Default is the current path")
         );
-    
+
     let matches = command.get_matches();
 
     let path = matches.get_one::<PathBuf>("path").unwrap();
@@ -46,7 +51,7 @@ fn main() {
     let dir = fs::read_dir(&path).unwrap();
     let entries = get_entries(&config, dir);
     let export_map = create_file_export_map(entries);
-    
+
     if export_map.len() > 0 {
         // let barrel_file = get_barrel_file(&path);
         create_barrel_file(path, export_map);
@@ -60,7 +65,7 @@ fn get_entries(config: &Barrel, dir: ReadDir) -> Vec<DirEntry> {
     dir.filter_map(|d| {
         let d = d.unwrap();
         let meta = d.metadata().unwrap();
-        
+
         if meta.is_file() && is_wanted_path(&config, &d.path()) {
             Some(d)
         } else if meta.is_dir() && has_barrel(&d.path()) {
@@ -68,7 +73,8 @@ fn get_entries(config: &Barrel, dir: ReadDir) -> Vec<DirEntry> {
         } else {
             None
         }
-    }).collect::<Vec<DirEntry>>()
+    })
+    .collect::<Vec<DirEntry>>()
 }
 
 fn is_wanted_path(config: &Barrel, path: &Path) -> bool {
@@ -81,7 +87,6 @@ fn is_wanted_path(config: &Barrel, path: &Path) -> bool {
 fn has_barrel(path: &Path) -> bool {
     path.join("index.ts").exists()
 }
-
 
 fn create_file_export_map(entries: Vec<DirEntry>) -> BTreeMap<String, Export> {
     let mut file_map = BTreeMap::new();
@@ -106,7 +111,7 @@ fn get_default_func_name(line: &str) -> String {
 
     let without_export = DEFAULT.replace(line, "");
     let func_name = NAME.replace_all(&without_export, "");
-    
+
     func_name.into()
 }
 

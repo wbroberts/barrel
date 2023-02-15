@@ -13,8 +13,8 @@ impl Export {
             Export::Default(name) => {
                 let export = format!("export {{ default as {} }} from", name);
                 Some(export)
-            },
-            _ => None
+            }
+            _ => None,
         }
     }
 }
