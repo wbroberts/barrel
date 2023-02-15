@@ -50,9 +50,10 @@ fn main() {
     if export_map.len() > 0 {
         // let barrel_file = get_barrel_file(&path);
         create_barrel_file(path, export_map);
+        println!("✔ {}", "Done".green());
+    } else {
+        println!("💤 {}", "Nothing to export".cyan());
     }
-
-    println!("✔ {}", "Done".green());
 }
 
 fn get_entries(config: &Barrel, dir: ReadDir) -> Vec<DirEntry> {
