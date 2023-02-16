@@ -5,78 +5,29 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::{builder::ValueParser, Arg, ArgAction, Command};
 use colored::Colorize;
-use globset::{Glob, GlobMatcher};
 use regex::Regex;
+
+use barrel::{Arguments, Export, Options};
 
 #[macro_use]
 extern crate lazy_static;
 
-struct Config {
-    ignore: Regex,
-    glob: GlobMatcher,
-}
-
-impl Config {
-    fn new() -> Config {
-        let glob = Glob::new("*.{ts,tsx}").unwrap().compile_matcher();
-        let ignore = Regex::new("(.test|.stories|index)").unwrap();
-
-        Config { ignore, glob }
-    }
-}
-
-enum Export {
-    None,
-    Named,
-    Default(String),
-    Module,
-}
-
-impl Export {
-    fn to_value(&self) -> Option<String> {
-        match self {
-            Export::Named | Export::Module => Some("export * from".to_string()),
-            Export::Default(name) => {
-                let export = format!("export {{ default as {} }} from", name);
-                Some(export)
-            }
-            _ => None,
-        }
-    }
-}
-
 fn main() {
-    let command = Command::new("barrel")
-        .about("Create barrel files for TS directories")
-        .author("William Roberts")
-        .arg(
-            Arg::new("path")
-                .action(ArgAction::Set)
-                .default_value("./")
-                .hide_default_value(true)
-                .value_parser(ValueParser::path_buf())
-                .help("The path where the file should be made or updated. Default is the current path")
-        );
-
-    let matches = command.get_matches();
-
-    let path = matches.get_one::<PathBuf>("path").unwrap();
-    let config = Config::new();
-    let dir = fs::read_dir(&path).unwrap();
-    let entries = get_entries(&config, dir);
+    let barrel = Arguments::parse();
+    let dir = fs::read_dir(&barrel.path).unwrap();
+    let entries = get_entries(&barrel.options, dir);
     let export_map = create_file_export_map(entries);
 
     if export_map.len() > 0 {
-        create_barrel_file(path, export_map);
+        create_barrel_file(&barrel.path, export_map);
         println!("✔ {}", "Done".green());
     } else {
         println!("💤 {}", "Nothing to export".cyan());
     }
 }
 
-fn get_entries(config: &Config, dir: ReadDir) -> Vec<DirEntry> {
+fn get_entries(config: &Options, dir: ReadDir) -> Vec<DirEntry> {
     dir.filter_map(|d| {
         let d = d.unwrap();
         let meta = d.metadata().unwrap();
@@ -92,7 +43,7 @@ fn get_entries(config: &Config, dir: ReadDir) -> Vec<DirEntry> {
     .collect::<Vec<DirEntry>>()
 }
 
-fn is_wanted_path(config: &Config, path: &Path) -> bool {
+fn is_wanted_path(config: &Options, path: &Path) -> bool {
     let name = path.file_stem().unwrap();
     let name = name.to_str().unwrap();
 
