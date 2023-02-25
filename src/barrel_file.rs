@@ -7,11 +7,11 @@ use std::{
 
 use crate::{export::Export, FilterOptions};
 
-pub struct Barrel;
+pub struct BarrelFile;
 
 type BarrelResult<T> = Result<T, Box<dyn Error>>;
 
-impl Barrel {
+impl BarrelFile {
     pub fn create(path: &PathBuf, options: &FilterOptions) -> BarrelResult<bool> {
         let mut entries = filter_entries(path, options)?;
         let exports = entries_to_exports(&mut entries, options);
@@ -106,27 +106,3 @@ fn open_barrel_file(path: &Path) -> Result<(File, bool), io::Error> {
 
     Ok((file, is_new))
 }
-
-// fn handle_git() -> BarrelResult {
-//     let mut parents: HashSet<PathBuf> = HashSet::new();
-
-//     get_staged()?.stdout.lines().for_each(|line| {
-//         let line = line.unwrap();
-//         let parent = get_parent(line);
-
-//         parents.insert(parent);
-//     });
-
-//     let results: Vec<BarrelResult> = parents.into_iter().map(|p| create_barrel(p)).collect();
-
-//     println!("{:?}", results);
-
-//     Ok(())
-// }
-
-// fn get_parent(line: String) -> PathBuf {
-//     let path = Path::new(&line);
-//     let parent = path.parent().unwrap();
-
-//     parent.to_path_buf()
-// }
