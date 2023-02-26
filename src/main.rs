@@ -16,10 +16,10 @@ fn main() {
             let message = if is_new {
                 format!("{} barrel file", "Created".bold().green())
             } else {
-                format!("{} barrel file", "Updated".bold().yellow())
+                format!("{} barrel file", "Updated".bold().cyan())
             };
 
             println!("✔️ {}", message);
         }
-    };
+    }
 }

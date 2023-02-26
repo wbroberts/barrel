@@ -1,6 +1,6 @@
 pub mod args;
 mod barrel_file;
-mod command;
+pub mod command;
 pub mod export;
 mod filter_options;
 

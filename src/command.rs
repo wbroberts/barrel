@@ -1,9 +1,11 @@
 use std::{
-    io::Error,
+    collections::HashSet,
+    io::{BufRead, Error},
+    path::{Path, PathBuf},
     process::{Command, Output},
 };
 
-pub fn _get_staged() -> Result<Output, Error> {
+pub fn get_staged() -> Result<Output, Error> {
     let output = Command::new("git")
         .arg("diff")
         .arg("--name-only")
@@ -13,26 +15,34 @@ pub fn _get_staged() -> Result<Output, Error> {
     Ok(output)
 }
 
-// fn handle_git() -> BarrelResult {
-//     let mut parents: HashSet<PathBuf> = HashSet::new();
+pub fn add_updates(paths: &HashSet<PathBuf>) -> Result<Output, Error> {
+    let additions = paths
+        .into_iter()
+        .map(|p| String::from(p.to_str().unwrap()))
+        .collect::<Vec<String>>()
+        .join(" ");
 
-//     get_staged()?.stdout.lines().for_each(|line| {
-//         let line = line.unwrap();
-//         let parent = get_parent(line);
+    let output = Command::new("git").arg("add").arg(additions).output()?;
 
-//         parents.insert(parent);
-//     });
+    Ok(output)
+}
 
-//     let results: Vec<BarrelResult> = parents.into_iter().map(|p| create_barrel(p)).collect();
+pub fn handle_git() -> Result<HashSet<PathBuf>, Error> {
+    let mut parents: HashSet<PathBuf> = HashSet::new();
 
-//     println!("{:?}", results);
+    get_staged()?.stdout.lines().for_each(|line| {
+        let line = line.unwrap();
+        let parent = get_parent(line);
 
-//     Ok(())
-// }
+        parents.insert(parent);
+    });
 
-// fn get_parent(line: String) -> PathBuf {
-//     let path = Path::new(&line);
-//     let parent = path.parent().unwrap();
+    Ok(parents)
+}
 
-//     parent.to_path_buf()
-// }
+fn get_parent(line: String) -> PathBuf {
+    let path = Path::new(&line);
+    let parent = path.parent().unwrap();
+
+    parent.to_path_buf()
+}
