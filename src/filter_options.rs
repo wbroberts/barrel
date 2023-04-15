@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use globset::{Glob, GlobMatcher};
 use regex::Regex;
@@ -32,25 +32,31 @@ impl FilterOptions {
         func_name.into()
     }
 
-    pub fn is_wanted_file(&self, path: &PathBuf) -> bool {
+    pub fn is_wanted_file(&self, path: &Path) -> bool {
         let name = path.file_stem().unwrap();
         let name = name.to_str().unwrap();
 
         self.glob.is_match(path) && !self.ignore_reg.is_match(name)
     }
 
-    pub fn is_wanted_dir(&self, path: &PathBuf) -> bool {
+    pub fn is_wanted_dir(&self, path: &Path) -> bool {
         path.join("index.ts").exists()
+    }
+}
+
+impl Default for FilterOptions {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[test]
 fn test_is_wanted_file() {
     let options = FilterOptions::new();
-    let test_path = PathBuf::from("files/Component.test.tsx");
-    let stories_path = PathBuf::from("files/Component.stories.tsx");
-    let component_path = PathBuf::from("files/Component.component.tsx");
-    let index_path = PathBuf::from("files/index.ts");
+    let test_path = Path::new("files/Component.test.tsx");
+    let stories_path = Path::new("files/Component.stories.tsx");
+    let component_path = Path::new("files/Component.component.tsx");
+    let index_path = Path::new("files/index.ts");
 
     assert_eq!(options.is_wanted_file(&test_path), false);
     assert_eq!(options.is_wanted_file(&stories_path), false);

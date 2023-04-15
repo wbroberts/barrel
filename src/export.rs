@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub enum Export {
@@ -26,7 +26,7 @@ impl Export {
         }
     }
 
-    fn get_file_stem(&self, path: &PathBuf) -> String {
+    fn get_file_stem(&self, path: &Path) -> String {
         let file_name = path.file_stem().unwrap();
         let file_name = file_name.to_owned();
         let file_name = file_name.to_str().unwrap();

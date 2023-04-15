@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use clap::{builder::ValueParser, Arg, ArgAction, Command};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub struct Args {
     pub path: PathBuf,
     // pub git: bool,
@@ -12,6 +14,7 @@ impl Args {
         let command = Command::new("barrel")
         .about("Create barrel files for TS directories")
         .author("William Roberts")
+        .version(VERSION)
         .arg(
           Arg::new("path")
               .action(ArgAction::Set)

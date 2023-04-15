@@ -29,7 +29,6 @@ dependencies = [
  "clap",
  "colored",
  "globset",
- "lazy_static",
  "regex",
 ]
 
